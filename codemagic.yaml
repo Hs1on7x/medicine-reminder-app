@@ -28,23 +28,26 @@ workflows:
           echo "compileSdkVersion = 34" > "$CM_BUILD_DIR/android/app/build.gradle.new"
           sed -e 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' "$CM_BUILD_DIR/android/app/build.gradle" > "$CM_BUILD_DIR/android/app/build.gradle.new"
           mv "$CM_BUILD_DIR/android/app/build.gradle.new" "$CM_BUILD_DIR/android/app/build.gradle"
-      - name: Build Debug APK with Flutter
+      - name: Build Release AAB
         script: |
-          flutter build apk --debug
+          flutter build appbundle --release
     artifacts:
-      - build/app/outputs/flutter-apk/app-debug.apk
+      - build/app/outputs/bundle/release/app-release.aab
       
-  ios-workflow:
-    name: iOS Workflow
+  ios-adhoc-workflow:
+    name: iOS Ad-Hoc Distribution
     max_build_duration: 120
     instance_type: mac_mini_m1
     environment:
       flutter: 3.19.3
       xcode: latest
-      groups:
-        - app_store_credentials # <-- For App Store publishing (if needed)
+      ios_signing:
+        distribution_type: ad-hoc  # Ad-Hoc allows distribution to specific registered devices
+        bundle_identifier: com.example.app_md  # Must match your app's bundle ID
       vars:
-        BUNDLE_ID: "com.example.app_md" # <-- Use your app's actual bundle ID
+        BUNDLE_ID: "com.example.app_md"  # Same as bundle_identifier above
+    integrations:
+      app_store_connect: codemagic  # Connect to App Store Connect for provisioning
     cache:
       cache_paths:
         - ~/.pub-cache
@@ -56,9 +59,44 @@ workflows:
         script: |
           cd ios
           pod install
-      - name: Build unsigned iOS app for debug
+      - name: Set up iOS code signing
         script: |
-          flutter build ios --debug --no-codesign
+          # Initialize keychain
+          keychain initialize
+          
+          # Fetch signing files from App Store Connect
+          # If you already have a provisioning profile, specify:
+          # --profile-name "YourAdHocProfile"
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_ADHOC \
+            --create
+            
+          # Add certificates to keychain
+          keychain add-certificates
+          
+          # Update project settings to use fetched profiles
+          xcode-project use-profiles
+          
+          # Verify code signing settings
+          echo "iOS code signing setup completed."
+          
+      - name: Update Bundle ID
+        script: |
+          # Replace com.example.appMd with your actual bundle ID in Xcode project
+          plutil -replace CFBundleIdentifier -string "$BUNDLE_ID" "$CM_BUILD_DIR/ios/Runner/Info.plist"
+          
+      - name: Build iOS IPA for distribution
+        script: |
+          # Build a signed IPA file for ad-hoc distribution
+          flutter build ipa --release \
+            --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log 
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      email:
+        recipients:
+          - your.email@example.com  # Replace with your email address
+        notify:
+          success: true
+          failure: true
