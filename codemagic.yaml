@@ -4,7 +4,7 @@ workflows:
     max_build_duration: 120
     instance_type: mac_mini_m1
     environment:
-      flutter: stable
+      flutter: 3.19.3
       xcode: latest
       java: 17.0.0
       groups:
@@ -22,23 +22,23 @@ workflows:
       - name: Get Flutter packages
         script: |
           flutter pub get
-      - name: Update Gradle wrapper
+      - name: Update Gradle files
         script: |
           cd android
+          # Use Gradle 7.6.1
           ./gradlew wrapper --gradle-version 7.6.1 --distribution-type all
-      - name: Build AAB
+      - name: Build Debug APK
         script: |
-          flutter build appbundle --release
+          flutter build apk --debug
     artifacts:
-      - build/**/outputs/**/*.aab
-      - build/**/outputs/**/mapping.txt
+      - build/app/outputs/apk/debug/*.apk
       
   ios-workflow:
     name: iOS Workflow
     max_build_duration: 120
     instance_type: mac_mini_m1
     environment:
-      flutter: stable
+      flutter: 3.19.3
       xcode: latest
       groups:
         - app_store_credentials # <-- For App Store publishing (if needed)
