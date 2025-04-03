@@ -19,14 +19,15 @@ workflows:
       - name: Set up local.properties
         script: |
           echo "flutter.sdk=$HOME/programs/flutter" > "$CM_BUILD_DIR/android/local.properties"
-      - name: Get Flutter packages
+      - name: Get Flutter packages and upgrade dependencies
         script: |
           flutter pub get
-      - name: Check Android SDK version
+          flutter pub upgrade --major-versions
+      - name: Fix compile SDK issue
         script: |
-          echo "Checking Android SDK location:"
-          echo $ANDROID_SDK_ROOT
-          ls -la $ANDROID_SDK_ROOT/platforms
+          echo "compileSdkVersion = 34" > "$CM_BUILD_DIR/android/app/build.gradle.new"
+          sed -e 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' "$CM_BUILD_DIR/android/app/build.gradle" > "$CM_BUILD_DIR/android/app/build.gradle.new"
+          mv "$CM_BUILD_DIR/android/app/build.gradle.new" "$CM_BUILD_DIR/android/app/build.gradle"
       - name: Build Debug APK with Flutter
         script: |
           flutter build apk --debug
