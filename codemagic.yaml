@@ -6,7 +6,7 @@ workflows:
     environment:
       flutter: 3.19.3
       xcode: latest
-      java: 17.0.0
+      java: 11.0.0  # Downgrade to Java 11
       groups:
         - google_credentials # <-- For Google Play publishing (if needed)
       vars:
@@ -22,16 +22,20 @@ workflows:
       - name: Get Flutter packages
         script: |
           flutter pub get
-      - name: Update Gradle files
+      - name: Check build.gradle content
+        script: |
+          echo "Checking android/app/build.gradle content:"
+          cat android/app/build.gradle
+      - name: Reset Gradle if needed
         script: |
           cd android
-          # Use Gradle 7.6.1
-          ./gradlew wrapper --gradle-version 7.6.1 --distribution-type all
-      - name: Build Debug APK
+          rm -rf ~/.gradle
+          ./gradlew clean
+      - name: Build Debug APK with Flutter
         script: |
           flutter build apk --debug
     artifacts:
-      - build/app/outputs/apk/debug/*.apk
+      - build/app/outputs/flutter-apk/app-debug.apk
       
   ios-workflow:
     name: iOS Workflow
